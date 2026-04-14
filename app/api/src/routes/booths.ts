@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { createBoothSchema, updateBoothSchema } from "../schemas/booth.js";
 
 const router = Router();
 
@@ -227,17 +229,13 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
  * POST /booths
  * Create a booth under one of the logged-in user's events
  */
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
+router.post(
+  "/",
+  requireAuth,
+  validate(createBoothSchema),
+  async (req: AuthRequest, res) => {
   try {
     const { eventId, name, desc, hidden } = req.body;
-
-    if (!eventId || typeof eventId !== "string") {
-      return res.status(400).json({ error: "eventId is required" });
-    }
-
-    if (!name || typeof name !== "string") {
-      return res.status(400).json({ error: "name is required" });
-    }
 
     const event = await prisma.event.findFirst({
       where: {
@@ -268,13 +266,18 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     console.error(error);
     res.status(500).json({ error: "Failed to create booth" });
   }
-});
+  },
+);
 
 /**
  * PATCH /booths/:id
  * Update a booth if it belongs to an event owned by the logged-in user
  */
-router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
+router.patch(
+  "/:id",
+  requireAuth,
+  validate(updateBoothSchema),
+  async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
@@ -313,7 +316,8 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
     console.error(error);
     res.status(500).json({ error: "Failed to update booth" });
   }
-});
+  },
+);
 
 /**
  * DELETE /booths/:id
