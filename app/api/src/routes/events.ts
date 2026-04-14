@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { createEventSchema } from "../schemas/event.js";
+import { validate } from "../middleware/validate.js";
+import { createEventSchema, updateEventSchema } from "../schemas/event.js";
 
 const router = Router();
 
@@ -61,7 +62,11 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
  * POST /events
  * Create a new event for the logged-in user
  */
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
+router.post(
+  "/",
+  requireAuth,
+  validate(createEventSchema),
+  async (req: AuthRequest, res) => {
   try {
     const { title, desc, imageUrl } = req.body;
 
@@ -83,13 +88,18 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     console.error(error);
     res.status(500).json({ error: "Failed to create event" });
   }
-});
+  },
+);
 
 /**
  * PATCH /events/:id
  * Update an event if it belongs to the logged-in user
  */
-router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
+router.patch(
+  "/:id",
+  requireAuth,
+  validate(updateEventSchema),
+  async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
@@ -126,7 +136,8 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
     console.error(error);
     res.status(500).json({ error: "Failed to update event" });
   }
-});
+  },
+);
 
 /**
  * DELETE /events/:id
