@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { createEventSchema } from "../schemas/event.js";
+import { validate } from "../middleware/validate.js";
+import { createEventSchema, updateEventSchema } from "../schemas/event.js";
 
 const router = Router();
 
@@ -61,72 +62,82 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
  * POST /events
  * Create a new event for the logged-in user
  */
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { title, desc, imageUrl } = req.body;
+router.post(
+  "/",
+  requireAuth,
+  validate(createEventSchema),
+  async (req: AuthRequest, res) => {
+    try {
+      const { title, desc, imageUrl } = req.body;
 
-    const event = await prisma.event.create({
-      data: {
-        title,
-        desc,
-        imageUrl,
-        owner: {
-          connect: {
-            id: req.userId,
+      const event = await prisma.event.create({
+        data: {
+          title,
+          desc,
+          imageUrl,
+          owner: {
+            connect: {
+              id: req.userId,
+            },
           },
         },
-      },
-    });
+      });
 
-    res.status(201).json(event);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to create event" });
-  }
-});
+      res.status(201).json(event);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to create event" });
+    }
+  },
+);
 
 /**
  * PATCH /events/:id
  * Update an event if it belongs to the logged-in user
  */
-router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
+router.patch(
+  "/:id",
+  requireAuth,
+  validate(updateEventSchema),
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
 
-    if (Array.isArray(id)) {
-      return res.status(400).json({ error: "Invalid event id" });
+      if (Array.isArray(id)) {
+        return res.status(400).json({ error: "Invalid event id" });
+      }
+
+      const { title, desc, imageUrl } = req.body;
+
+      const existingEvent = await prisma.event.findFirst({
+        where: {
+          id,
+          ownerId: req.userId,
+        },
+      });
+
+      if (!existingEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      const updatedEvent = await prisma.event.update({
+        where: {
+          id,
+        },
+        data: {
+          ...(title !== undefined && { title }),
+          ...(desc !== undefined && { desc }),
+          ...(imageUrl !== undefined && { imageUrl }),
+        },
+      });
+
+      res.json(updatedEvent);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to update event" });
     }
-
-    const { title, desc, imageUrl } = req.body;
-
-    const existingEvent = await prisma.event.findFirst({
-      where: {
-        id,
-        ownerId: req.userId,
-      },
-    });
-
-    if (!existingEvent) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    const updatedEvent = await prisma.event.update({
-      where: {
-        id,
-      },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(desc !== undefined && { desc }),
-        ...(imageUrl !== undefined && { imageUrl }),
-      },
-    });
-
-    res.json(updatedEvent);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to update event" });
-  }
-});
+  },
+);
 
 /**
  * DELETE /events/:id

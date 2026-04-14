@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { createBoothSchema, updateBoothSchema } from "../schemas/booth.js";
 
 const router = Router();
 
@@ -227,93 +229,95 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
  * POST /booths
  * Create a booth under one of the logged-in user's events
  */
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { eventId, name, desc, hidden } = req.body;
+router.post(
+  "/",
+  requireAuth,
+  validate(createBoothSchema),
+  async (req: AuthRequest, res) => {
+    try {
+      const { eventId, name, desc, hidden } = req.body;
 
-    if (!eventId || typeof eventId !== "string") {
-      return res.status(400).json({ error: "eventId is required" });
-    }
+      const event = await prisma.event.findFirst({
+        where: {
+          id: eventId,
+          ownerId: req.userId,
+        },
+      });
 
-    if (!name || typeof name !== "string") {
-      return res.status(400).json({ error: "name is required" });
-    }
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
 
-    const event = await prisma.event.findFirst({
-      where: {
-        id: eventId,
-        ownerId: req.userId,
-      },
-    });
-
-    if (!event) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    const booth = await prisma.booth.create({
-      data: {
-        name,
-        desc,
-        hidden: typeof hidden === "boolean" ? hidden : false,
-        event: {
-          connect: {
-            id: eventId,
+      const booth = await prisma.booth.create({
+        data: {
+          name,
+          desc,
+          hidden: typeof hidden === "boolean" ? hidden : false,
+          event: {
+            connect: {
+              id: eventId,
+            },
           },
         },
-      },
-    });
+      });
 
-    res.status(201).json(booth);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to create booth" });
-  }
-});
+      res.status(201).json(booth);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to create booth" });
+    }
+  },
+);
 
 /**
  * PATCH /booths/:id
  * Update a booth if it belongs to an event owned by the logged-in user
  */
-router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
+router.patch(
+  "/:id",
+  requireAuth,
+  validate(updateBoothSchema),
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
 
-    if (Array.isArray(id)) {
-      return res.status(400).json({ error: "Invalid booth id" });
-    }
+      if (Array.isArray(id)) {
+        return res.status(400).json({ error: "Invalid booth id" });
+      }
 
-    const { name, desc, hidden } = req.body;
+      const { name, desc, hidden } = req.body;
 
-    const existingBooth = await prisma.booth.findFirst({
-      where: {
-        id,
-        event: {
-          ownerId: req.userId,
+      const existingBooth = await prisma.booth.findFirst({
+        where: {
+          id,
+          event: {
+            ownerId: req.userId,
+          },
         },
-      },
-    });
+      });
 
-    if (!existingBooth) {
-      return res.status(404).json({ error: "Booth not found" });
+      if (!existingBooth) {
+        return res.status(404).json({ error: "Booth not found" });
+      }
+
+      const updatedBooth = await prisma.booth.update({
+        where: {
+          id,
+        },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(desc !== undefined && { desc }),
+          ...(hidden !== undefined && { hidden }),
+        },
+      });
+
+      res.json(updatedBooth);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to update booth" });
     }
-
-    const updatedBooth = await prisma.booth.update({
-      where: {
-        id,
-      },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(desc !== undefined && { desc }),
-        ...(hidden !== undefined && { hidden }),
-      },
-    });
-
-    res.json(updatedBooth);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to update booth" });
-  }
-});
+  },
+);
 
 /**
  * DELETE /booths/:id
