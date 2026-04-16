@@ -9,6 +9,12 @@ const app = express();
 const PORT = 4000;
 
 app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 
 app.use("/auth", authRoutes);
 app.use("/events", eventRoutes);
@@ -20,10 +26,3 @@ app.get("/ping", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-  }),
-);

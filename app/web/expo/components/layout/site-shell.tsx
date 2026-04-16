@@ -1,19 +1,54 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/login", label: "Log in" },
-  { href: "/signup", label: "Sign up" },
-];
+import { clearStoredAuth, getStoredAuth } from "@/lib/auth";
 
 type SiteShellProps = {
   children: React.ReactNode;
 };
 
 export function SiteShell({ children }: SiteShellProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const refreshAuth = () => {
+      setIsAuthenticated(Boolean(getStoredAuth()?.token));
+    };
+
+    refreshAuth();
+    window.addEventListener("storage", refreshAuth);
+
+    return () => {
+      window.removeEventListener("storage", refreshAuth);
+    };
+  }, [pathname]);
+
+  const navLinks = useMemo(
+    () => [
+      { href: "/", label: "Home" },
+      { href: "/dashboard", label: "Dashboard" },
+      ...(isAuthenticated
+        ? []
+        : [
+            { href: "/login", label: "Log in" },
+            { href: "/signup", label: "Sign up" },
+          ]),
+    ],
+    [isAuthenticated],
+  );
+
+  const handleLogout = () => {
+    clearStoredAuth();
+    setIsAuthenticated(false);
+    router.push("/login");
+  };
+
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-[var(--theme-border)] bg-[color:rgb(245_247_251_/_0.9)] backdrop-blur">
@@ -36,9 +71,16 @@ export function SiteShell({ children }: SiteShellProps) {
               ))}
             </ul>
           </nav>
-          <Button variant="secondary" className="hidden sm:inline-flex" leadingIcon={<Icon name="logout" className="text-base" />}>
-            Log out
-          </Button>
+          {isAuthenticated ? (
+            <Button
+              variant="secondary"
+              className="hidden sm:inline-flex"
+              leadingIcon={<Icon name="logout" className="text-base" />}
+              onClick={handleLogout}
+            >
+              Log out
+            </Button>
+          ) : null}
         </div>
       </header>
       {children}
