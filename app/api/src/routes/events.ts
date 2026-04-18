@@ -67,27 +67,27 @@ router.post(
   requireAuth,
   validate(createEventSchema),
   async (req: AuthRequest, res) => {
-  try {
-    const { title, desc, imageUrl } = req.body;
+    try {
+      const { title, desc, imageUrl } = req.body;
 
-    const event = await prisma.event.create({
-      data: {
-        title,
-        desc,
-        imageUrl,
-        owner: {
-          connect: {
-            id: req.userId,
+      const event = await prisma.event.create({
+        data: {
+          title,
+          desc,
+          imageUrl,
+          owner: {
+            connect: {
+              id: req.userId,
+            },
           },
         },
-      },
-    });
+      });
 
-    res.status(201).json(event);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to create event" });
-  }
+      res.status(201).json(event);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to create event" });
+    }
   },
 );
 
@@ -100,42 +100,42 @@ router.patch(
   requireAuth,
   validate(updateEventSchema),
   async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
+    try {
+      const { id } = req.params;
 
-    if (Array.isArray(id)) {
-      return res.status(400).json({ error: "Invalid event id" });
+      if (Array.isArray(id)) {
+        return res.status(400).json({ error: "Invalid event id" });
+      }
+
+      const { title, desc, imageUrl } = req.body;
+
+      const existingEvent = await prisma.event.findFirst({
+        where: {
+          id,
+          ownerId: req.userId,
+        },
+      });
+
+      if (!existingEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      const updatedEvent = await prisma.event.update({
+        where: {
+          id,
+        },
+        data: {
+          ...(title !== undefined && { title }),
+          ...(desc !== undefined && { desc }),
+          ...(imageUrl !== undefined && { imageUrl }),
+        },
+      });
+
+      res.json(updatedEvent);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to update event" });
     }
-
-    const { title, desc, imageUrl } = req.body;
-
-    const existingEvent = await prisma.event.findFirst({
-      where: {
-        id,
-        ownerId: req.userId,
-      },
-    });
-
-    if (!existingEvent) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    const updatedEvent = await prisma.event.update({
-      where: {
-        id,
-      },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(desc !== undefined && { desc }),
-        ...(imageUrl !== undefined && { imageUrl }),
-      },
-    });
-
-    res.json(updatedEvent);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to update event" });
-  }
   },
 );
 
